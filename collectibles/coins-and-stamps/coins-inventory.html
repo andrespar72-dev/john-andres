@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coin Collection Inventory — John Andres</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a2e; }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: white;
+      padding: 32px 40px 24px;
+    }
+    header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    header p { font-size: 13px; color: #8892a4; margin-top: 4px; }
+
+    .scoreboard {
+      display: flex;
+      gap: 16px;
+      padding: 24px 40px;
+      background: white;
+      border-bottom: 1px solid #e2e6ea;
+      flex-wrap: wrap;
+    }
+    .score-card {
+      flex: 1;
+      min-width: 140px;
+      background: #f8f9fb;
+      border: 1px solid #e2e6ea;
+      border-radius: 8px;
+      padding: 14px 18px;
+    }
+    .score-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; }
+    .score-card .value { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-top: 4px; }
+    .score-card.highlight .value { color: #16a34a; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      padding: 20px 40px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls input, .controls select {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+      color: #1a1a2e;
+    }
+    .controls input { width: 220px; }
+    .controls label { font-size: 12px; color: #6b7280; margin-right: 4px; }
+    .controls .control-group { display: flex; align-items: center; gap: 6px; }
+
+    .table-wrap { padding: 0 40px 40px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    thead { background: #1a1a2e; color: white; }
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    th:hover { background: #16213e; }
+    th.sorted-asc::after { content: ' ↑'; }
+    th.sorted-desc::after { content: ' ↓'; }
+    td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f1f3; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9fb; }
+
+    .coin-type { font-weight: 600; color: #1a1a2e; }
+    .year { color: #374151; }
+    .qty { text-align: center; font-weight: 600; }
+    .money { text-align: right; font-variant-numeric: tabular-nums; }
+    .total-value { font-weight: 700; color: #16a34a; }
+    .condition-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      background: #f0fdf4;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+
+    .tfoot-row td { background: #1a1a2e; color: white; font-weight: 700; font-size: 13px; }
+    .tfoot-row .total-value { color: #86efac; }
+
+    @media (max-width: 768px) {
+      header, .scoreboard, .controls, .table-wrap { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Coin Collection Inventory</h1>
+  <p>John Andres &nbsp;|&nbsp; Last updated: April 2026</p>
+</header>
+
+<div class="scoreboard" id="scoreboard">
+  <div class="score-card">
+    <div class="label">Coin Types</div>
+    <div class="value" id="stat-types">--</div>
+  </div>
+  <div class="score-card">
+    <div class="label">Line Items</div>
+    <div class="value" id="stat-lines">--</div>
+  </div>
+  <div class="score-card">
+    <div class="label">Total Coins</div>
+    <div class="value" id="stat-qty">--</div>
+  </div>
+  <div class="score-card highlight">
+    <div class="label">Est. Total Value</div>
+    <div class="value" id="stat-value">--</div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <input type="text" id="search" placeholder="Search year, mint, coin type...">
+  </div>
+  <div class="control-group">
+    <label>Type:</label>
+    <select id="filter-type">
+      <option value="">All Types</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Showing:</label>
+    <span id="row-count" style="font-size:13px; color:#374151; font-weight:600;">--</span>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table id="coin-table">
+    <thead>
+      <tr>
+        <th data-col="type">Coin Type</th>
+        <th data-col="year">Year / Mint</th>
+        <th data-col="qty" style="text-align:center">Qty</th>
+        <th data-col="price" style="text-align:right">Est. Value Each</th>
+        <th data-col="total" style="text-align:right">Total Value</th>
+        <th data-col="condition">Condition</th>
+        <th data-col="grading">Grading</th>
+        <th data-col="entered">Date Entered</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+    <tfoot>
+      <tr class="tfoot-row" id="tfoot-row">
+        <td colspan="2"><strong>TOTALS (filtered)</strong></td>
+        <td class="qty" id="foot-qty">--</td>
+        <td></td>
+        <td class="money total-value" id="foot-total">--</td>
+        <td colspan="3"></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<script>
+const RAW = `id,product-name,console-name,price-in-pennies,include-string,condition-string,sku,notes,cost-basis-in-pennies,quantity,date-entered,date-purchased,grading-company,grading-cert-id,folder
+4619490,1970 D,Coins Roosevelt Dime,182,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4613541,1976,Coins Kennedy Half Dollar,4416,Ungraded,Normal wear,,,0,8,2026-02-16,,,,
+4562894,1958 D,Coins Lincoln Wheat Penny,516,Ungraded,Normal wear,,,0,2,2026-02-20,,,,
+4613539,1974,Coins Kennedy Half Dollar,1595,Ungraded,Normal wear,,,0,5,2026-02-16,,,,
+4612382,1939,Coins Washington Quarter,3100,Ungraded,Normal wear,,,0,2,2026-02-28,,,,
+4611750,1971 D,Coins Eisenhower Dollar,10675,Ungraded,Normal wear,,,0,25,2026-02-16,,,,
+4613531,1969 D,Coins Kennedy Half Dollar,1100,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4619493,1972,Coins Roosevelt Dime,192,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4562838,1941 D,Coins Lincoln Wheat Penny,599,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4562859,1946,Coins Lincoln Wheat Penny,8676,Ungraded,Normal wear,,,0,36,2026-02-17,,,,
+4619824,1936,Coins Buffalo Nickel,1550,Ungraded,Normal wear,,,0,1,2026-02-27,,,,
+4613529,1967,Coins Kennedy Half Dollar,9450,Ungraded,Normal wear,,,0,9,2026-02-16,,,,
+4562753,1912,Coins Lincoln Wheat Penny,1721,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4562878,1952 D,Coins Lincoln Wheat Penny,1625,Ungraded,Normal wear,,,0,5,2026-02-20,,,,
+4562800,1928,Coins Lincoln Wheat Penny,24025,Ungraded,Normal wear,,,0,25,2026-02-20,,,,
+4562877,1952,Coins Lincoln Wheat Penny,897,Ungraded,Normal wear,,,0,3,2026-02-20,,,,
+4562840,1942,Coins Lincoln Wheat Penny,1176,Ungraded,Normal wear,,,0,4,2026-02-20,,,,
+4612394,1943,Coins Washington Quarter,5556,Ungraded,Normal wear,,,0,4,2026-02-16,,,,
+4563365,1884,Coins Indian Head Penny,500,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4612421,1952 D,Coins Washington Quarter,4125,Ungraded,Normal wear,,,0,3,2026-03-01,,,,
+4619916,1965,Coins Jefferson Nickel,266,Ungraded,Normal wear,,,0,1,2026-02-27,,,,
+4612424,1953 D,Coins Washington Quarter,1522,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4613498,1952,Coins Franklin Half Dollar,2830,Ungraded,Normal wear,,,0,1,2026-02-27,,,,
+4562886,1955,Coins Lincoln Wheat Penny,300,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4562748,1910,Coins Lincoln Wheat Penny,991,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4562834,1940,Coins Lincoln Wheat Penny,598,Ungraded,Normal wear,,,0,2,2026-02-20,,,,
+4619424,1943,Coins Mercury Dime,761,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4619419,1942,Coins Mercury Dime,973,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4612448,1964 D,Coins Washington Quarter,22729,Ungraded,Normal wear,,,0,17,2026-03-01,,,,
+4612443,1962,Coins Washington Quarter,3128,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4619482,1965,Coins Roosevelt Dime,1347,Ungraded,Normal wear,,,0,3,2026-02-26,,,,
+4612413,1949 D,Coins Washington Quarter,2174,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4612466,1976 D,Coins Washington Quarter,3360,Ungraded,Normal wear,,,0,21,2026-02-16,,,,
+4619360,1918,Coins Mercury Dime,1034,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4562776,1919,Coins Lincoln Wheat Penny,926,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4611797,2000 D,Coins Sacagawea Dollar,660,Ungraded,Normal wear,,,0,2,2026-02-27,,,,
+4612397,1944,Coins Washington Quarter,5660,Ungraded,Normal wear,,,0,4,2026-02-16,,,,
+4563383,1901,Coins Indian Head Penny,946,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4612405,1946 S,Coins Washington Quarter,3720,Ungraded,Normal wear,,,0,2,2026-03-02,,,,
+4562803,1929,Coins Lincoln Wheat Penny,4548,Ungraded,Normal wear,,,0,4,2026-02-20,,,,
+4562773,1918,Coins Lincoln Wheat Penny,488,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4612370,1934 D,Coins Washington Quarter,3691,Ungraded,Normal wear,,,0,1,2026-03-02,,,,
+4563375,1892,Coins Indian Head Penny,657,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4563373,1890,Coins Indian Head Penny,1200,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4612415,1950 D,Coins Washington Quarter,1752,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4562872,1950 D,Coins Lincoln Wheat Penny,424,Ungraded,Normal wear,,,0,2,2026-02-20,,,,
+4612433,1957,Coins Washington Quarter,2798,Ungraded,Normal wear,,,0,2,2026-03-01,,,,
+4619312,1904,Coins Barber Dime,1100,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4613525,1964,Coins Kennedy Half Dollar,23260,Ungraded,Normal wear,,,0,10,2025-11-05,,,,
+4563364,1883,Coins Indian Head Penny,1260,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4562849,1944,Coins Lincoln Wheat Penny,1190,Ungraded,Normal wear,,,0,5,2026-02-20,,,,
+4619821,1935,Coins Buffalo Nickel,536,Ungraded,Normal wear,,,0,1,2026-02-27,,,,
+4612409,1948,Coins Washington Quarter,4326,Ungraded,Normal wear,,,0,3,2026-02-28,,,,
+4563348,1867,Coins Indian Head Penny,2617,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4612438,1959 D,Coins Washington Quarter,4494,Ungraded,Normal wear,,,0,3,2026-03-01,,,,
+4613537,1973,Coins Kennedy Half Dollar,1525,Ungraded,Normal wear,,,0,5,2026-02-16,,,,
+4619480,1964,Coins Roosevelt Dime,575,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4613535,1972,Coins Kennedy Half Dollar,576,Ungraded,Normal wear,,,0,3,2026-02-16,,,,
+4562856,1945,Coins Lincoln Wheat Penny,2009,Ungraded,Normal wear,,,0,7,2026-02-20,,,,
+4612442,1961 D,Coins Washington Quarter,3834,Ungraded,Normal wear,,,0,3,2026-03-01,,,,
+4562874,1951,Coins Lincoln Wheat Penny,395,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4562779,1920,Coins Lincoln Wheat Penny,575,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4562881,1953 D,Coins Lincoln Wheat Penny,488,Ungraded,Normal wear,,,0,2,2026-02-20,,,,
+4612465,1976,Coins Washington Quarter,33338,Ungraded,Normal wear,,,0,79,2026-02-16,,,,
+4619498,1974 D,Coins Roosevelt Dime,170,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4613533,1971,Coins Kennedy Half Dollar,1450,Ungraded,Normal wear,,,0,5,2026-02-16,,,,
+4563386,1904,Coins Indian Head Penny,3075,Ungraded,Normal wear,,,0,3,2026-02-16,,,,
+4619430,1945,Coins Mercury Dime,608,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4619909,1961 D,Coins Jefferson Nickel,6200,Ungraded,Normal wear,,,0,40,2026-02-17,,,,
+4611749,1971,Coins Eisenhower Dollar,1298,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4613561,1985 D,Coins Kennedy Half Dollar,323,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4611725,1923,Coins Peace Dollar,17115,Ungraded,Normal wear,,,0,3,2026-02-16,,,,
+4612431,1956,Coins Washington Quarter,5788,Ungraded,Normal wear,,,0,4,2026-02-16,,,,
+4612400,1945,Coins Washington Quarter,3939,Ungraded,Normal wear,,,0,3,2026-02-28,,,,
+4612426,1954,Coins Washington Quarter,3094,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4612434,1957 D,Coins Washington Quarter,2802,Ungraded,Normal wear,,,0,2,2026-03-01,,,,
+4612441,1961,Coins Washington Quarter,3891,Ungraded,Normal wear,,,0,3,2026-02-16,,,,
+4562884,1954 D,Coins Lincoln Wheat Penny,370,Ungraded,Normal wear,,,0,2,2026-02-20,,,,
+4619427,1944,Coins Mercury Dime,1000,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4562890,1956,Coins Lincoln Wheat Penny,590,Ungraded,Normal wear,,,0,2,2026-02-20,,,,
+4612388,1941,Coins Washington Quarter,7200,Ungraded,Normal wear,,,0,4,2026-02-16,,,,
+4562806,1930,Coins Lincoln Wheat Penny,888,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4612440,1960 D,Coins Washington Quarter,1500,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4612385,1940,Coins Washington Quarter,1556,Ungraded,Normal wear,,,0,1,2026-02-28,,,,
+4612402,1945 S,Coins Washington Quarter,1510,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4562816,1934,Coins Lincoln Wheat Penny,506,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4619487,1969,Coins Roosevelt Dime,353,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4611779,1979 D,Coins Susan B Anthony Dollar,2673,Ungraded,Normal wear,,,0,9,2026-02-16,,,,
+4563389,1907,Coins Indian Head Penny,700,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4563356,1875,Coins Indian Head Penny,974,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4612391,1942,Coins Washington Quarter,9144,Ungraded,Normal wear,,,0,6,2026-02-28,,,,
+4563379,1897,Coins Indian Head Penny,1223,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4619485,1968,Coins Roosevelt Dime,192,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4613527,1965,Coins Kennedy Half Dollar,3450,Ungraded,Normal wear,,,0,3,2026-02-16,,,,
+4612404,1946 D,Coins Washington Quarter,1985,Ungraded,Normal wear,,,0,1,2026-03-02,,,,
+4613530,1968 D,Coins Kennedy Half Dollar,5165,Ungraded,Normal wear,,,0,5,2026-02-16,,,,
+4619484,1967,Coins Roosevelt Dime,194,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4612446,1963 D,Coins Washington Quarter,5424,Ungraded,Normal wear,,,0,4,2026-03-01,,,,
+4563359,1878,Coins Indian Head Penny,2081,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4619908,1961,Coins Jefferson Nickel,178,Ungraded,Normal wear,,,0,1,2026-02-27,,,,
+4612396,1943 S,Coins Washington Quarter,1998,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4562880,1953,Coins Lincoln Wheat Penny,592,Ungraded,Normal wear,,,0,2,2026-02-20,,,,
+4612444,1962 D,Coins Washington Quarter,6215,Ungraded,Normal wear,,,0,5,2026-03-01,,,,
+4563388,1906,Coins Indian Head Penny,1100,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4619416,1941,Coins Mercury Dime,998,Ungraded,Normal wear,,,0,1,2026-02-26,,,,
+4612410,1948 D,Coins Washington Quarter,1739,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4562893,1958,Coins Lincoln Wheat Penny,217,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4563384,1902,Coins Indian Head Penny,1306,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4562797,1927,Coins Lincoln Wheat Penny,7696,Ungraded,Normal wear,,,0,16,2026-02-20,,,,
+4612437,1959,Coins Washington Quarter,3182,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4613528,1966,Coins Kennedy Half Dollar,6762,Ungraded,Normal wear,,,0,6,2026-02-16,,,,
+4612445,1963,Coins Washington Quarter,1499,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4563372,1889,Coins Indian Head Penny,449,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4613553,1981 D,Coins Kennedy Half Dollar,295,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4562821,1936,Coins Lincoln Wheat Penny,625,Ungraded,Normal wear,,,0,1,2026-02-20,,,,
+4612380,1938,Coins Washington Quarter,4032,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4562892,1957 D,Coins Lincoln Wheat Penny,1062,Ungraded,Normal wear,,,0,6,2026-02-20,,,,
+4611783,1980 S,Coins Susan B Anthony Dollar,11310,Ungraded,Normal wear,,,0,30,2026-02-16,,,,
+4562794,1926,Coins Lincoln Wheat Penny,995,Ungraded,Normal wear,,,0,5,2026-02-20,,,,
+4563385,1903,Coins Indian Head Penny,2250,Ungraded,Normal wear,,,0,2,2026-02-16,,,,
+4562891,1956 D,Coins Lincoln Wheat Penny,760,Ungraded,Normal wear,,,0,4,2026-02-20,,,,
+4613458,1937,Coins Walking Liberty Half Dollar,3081,Ungraded,Normal wear,,,0,1,2026-02-27,,,,
+4612377,1937,Coins Washington Quarter,5811,Ungraded,Normal wear,,,0,3,2026-02-28,,,,
+4612369,1934,Coins Washington Quarter,1576,Ungraded,Normal wear,,,0,1,2026-02-28,,,,
+4612449,1965,Coins Washington Quarter,1350,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4612436,1958 D,Coins Washington Quarter,1428,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4563347,1866,Coins Indian Head Penny,4900,Ungraded,Normal wear,,,0,1,2026-02-16,,,,
+4612423,1953,Coins Washington Quarter,1999,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4612395,1943 D,Coins Washington Quarter,1655,Ungraded,Normal wear,,,0,1,2026-03-01,,,,
+4612447,1964,Coins Washington Quarter,37773,Ungraded,Normal wear,,,0,27,2026-02-16,,,,`;
+
+function parseCsv(raw) {
+  const lines = raw.trim().split('\n');
+  const headers = lines[0].split(',');
+  return lines.slice(1).map(line => {
+    const vals = line.split(',');
+    const obj = {};
+    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
+    return obj;
+  });
+}
+
+function coinType(row) {
+  return row['console-name'].replace(/^Coins\s+/, '');
+}
+
+function fmt$(pennies) {
+  return '$' + (pennies / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+const data = parseCsv(RAW);
+let sorted = { col: 'type', dir: 'asc' };
+let filtered = [...data];
+
+function buildTypeOptions() {
+  const types = [...new Set(data.map(coinType))].sort();
+  const sel = document.getElementById('filter-type');
+  types.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  });
+}
+
+function applyFilters() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const type = document.getElementById('filter-type').value;
+  filtered = data.filter(row => {
+    const matchType = !type || coinType(row) === type;
+    const matchSearch = !search ||
+      row['product-name'].toLowerCase().includes(search) ||
+      coinType(row).toLowerCase().includes(search);
+    return matchType && matchSearch;
+  });
+  sortAndRender();
+}
+
+function sortAndRender() {
+  const colMap = {
+    type: r => coinType(r),
+    year: r => r['product-name'],
+    qty: r => parseInt(r['quantity']) || 0,
+    price: r => parseInt(r['price-in-pennies']) || 0,
+    total: r => (parseInt(r['price-in-pennies']) || 0) * (parseInt(r['quantity']) || 0),
+    condition: r => r['condition-string'],
+    grading: r => r['grading-company'] || '',
+    entered: r => r['date-entered']
+  };
+
+  filtered.sort((a, b) => {
+    const va = colMap[sorted.col](a);
+    const vb = colMap[sorted.col](b);
+    const cmp = typeof va === 'number' ? va - vb : va.localeCompare(vb);
+    return sorted.dir === 'asc' ? cmp : -cmp;
+  });
+
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+
+  let totalQty = 0, totalVal = 0;
+
+  filtered.forEach(row => {
+    const qty = parseInt(row['quantity']) || 0;
+    const price = parseInt(row['price-in-pennies']) || 0;
+    const total = price * qty;
+    totalQty += qty;
+    totalVal += total;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="coin-type">${coinType(row)}</td>
+      <td class="year">${row['product-name']}</td>
+      <td class="qty">${qty}</td>
+      <td class="money">${fmt$(price)}</td>
+      <td class="money total-value">${fmt$(total)}</td>
+      <td><span class="condition-badge">${row['condition-string']}</span></td>
+      <td>${row['grading-company'] || '<span style="color:#9ca3af">None</span>'}</td>
+      <td>${row['date-entered'] || ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('foot-qty').textContent = totalQty.toLocaleString();
+  document.getElementById('foot-total').textContent = fmt$(totalVal);
+  document.getElementById('row-count').textContent = filtered.length + ' of ' + data.length + ' items';
+
+  const types = new Set(filtered.map(coinType));
+  document.getElementById('stat-types').textContent = types.size;
+  document.getElementById('stat-lines').textContent = filtered.length;
+  document.getElementById('stat-qty').textContent = totalQty.toLocaleString();
+  document.getElementById('stat-value').textContent = fmt$(totalVal);
+}
+
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sorted.col === col) {
+      sorted.dir = sorted.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sorted.col = col;
+      sorted.dir = 'asc';
+    }
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sorted-asc', 'sorted-desc'));
+    th.classList.add('sorted-' + sorted.dir);
+    sortAndRender();
+  });
+});
+
+document.getElementById('search').addEventListener('input', applyFilters);
+document.getElementById('filter-type').addEventListener('change', applyFilters);
+
+buildTypeOptions();
+applyFilters();
+
+document.querySelector('th[data-col="type"]').classList.add('sorted-asc');
+</script>
+</body>
+</html>
