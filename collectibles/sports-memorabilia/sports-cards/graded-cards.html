@@ -138,6 +138,17 @@
     .tfoot-row td { background: #1a1a2e; color: white; font-weight: 700; font-size: 13px; }
     .tfoot-row .gain { color: #86efac; }
 
+    .thumb { width: 36px; height: 54px; object-fit: cover; border-radius: 3px; cursor: pointer; border: 1px solid #d1d5db; transition: transform 0.1s; }
+    .thumb:hover { transform: scale(1.1); }
+    .thumb-group { display: flex; gap: 4px; align-items: center; }
+
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
+    .lightbox.active { display: flex; }
+    .lightbox-inner { position: relative; display: flex; gap: 16px; align-items: flex-start; max-width: 90vw; }
+    .lightbox img { max-height: 85vh; max-width: 45vw; border-radius: 6px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .lightbox-close { position: fixed; top: 20px; right: 28px; color: white; font-size: 32px; cursor: pointer; line-height: 1; }
+    .lightbox-label { color: white; font-size: 12px; text-align: center; margin-top: 6px; opacity: 0.7; }
+
     @media (max-width: 768px) {
       header, .scoreboard, .controls, .table-wrap { padding-left: 16px; padding-right: 16px; }
     }
@@ -367,7 +378,14 @@ function renderTable() {
       <td class="money">${fmt$(row['PSA Estimate'])}</td>
       <td class="money ${gain.cls}">${gain.text}</td>
       <td>
-        <a class="psa-link" href="https://www.psacard.com/cert/${row['Cert Number']}" target="_blank">PSA ${row['Cert Number']}</a>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start">
+          <a class="psa-link" href="https://www.psacard.com/cert/${row['Cert Number']}" target="_blank">PSA ${row['Cert Number']}</a>
+          ${hasPhotos(row['Cert Number']) ? `
+          <div class="thumb-group">
+            <img class="thumb" src="photos/${row['Cert Number']}-front.jpg" onclick="openLight('${row['Cert Number']}')" title="View front & back">
+            <img class="thumb" src="photos/${row['Cert Number']}-back.jpg" onclick="openLight('${row['Cert Number']}')" title="View front & back">
+          </div>` : ''}
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
@@ -403,8 +421,37 @@ document.getElementById('search').addEventListener('input', applyFilters);
 document.getElementById('filter-sport').addEventListener('change', applyFilters);
 document.getElementById('filter-grade').addEventListener('change', applyFilters);
 
+const PHOTO_CERTS = ['141090743','141090744','141090745','141090746','141090747','141090748','141090749','141090750'];
+function hasPhotos(cert) { return PHOTO_CERTS.includes(cert); }
+
+function openLight(cert) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lb-front').src = `photos/${cert}-front.jpg`;
+  document.getElementById('lb-back').src = `photos/${cert}-back.jpg`;
+  lb.classList.add('active');
+}
+document.getElementById('lightbox').addEventListener('click', function(e) {
+  if (e.target === this || e.target.classList.contains('lightbox-close')) {
+    this.classList.remove('active');
+  }
+});
+
 applyFilters();
 document.querySelector('th[data-col="subject"]').classList.add('sorted-asc');
 </script>
+
+<div class="lightbox" id="lightbox">
+  <span class="lightbox-close" onclick="document.getElementById('lightbox').classList.remove('active')">&times;</span>
+  <div class="lightbox-inner">
+    <div>
+      <img id="lb-front" src="" alt="Front">
+      <div class="lightbox-label">Front</div>
+    </div>
+    <div>
+      <img id="lb-back" src="" alt="Back">
+      <div class="lightbox-label">Back</div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
