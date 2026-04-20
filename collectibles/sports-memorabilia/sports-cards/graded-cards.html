@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Graded Card Collection — John Andres</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a2e; }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: white;
+      padding: 32px 40px 24px;
+    }
+    header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    header p { font-size: 13px; color: #8892a4; margin-top: 4px; }
+
+    .scoreboard {
+      display: flex;
+      gap: 16px;
+      padding: 24px 40px;
+      background: white;
+      border-bottom: 1px solid #e2e6ea;
+      flex-wrap: wrap;
+    }
+    .score-card {
+      flex: 1;
+      min-width: 140px;
+      background: #f8f9fb;
+      border: 1px solid #e2e6ea;
+      border-radius: 8px;
+      padding: 14px 18px;
+    }
+    .score-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; }
+    .score-card .value { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-top: 4px; }
+    .score-card.highlight .value { color: #16a34a; }
+    .score-card.accent .value { color: #2563eb; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      padding: 20px 40px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls input, .controls select {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+      color: #1a1a2e;
+    }
+    .controls input { width: 240px; }
+    .controls label { font-size: 12px; color: #6b7280; margin-right: 4px; }
+    .controls .control-group { display: flex; align-items: center; gap: 6px; }
+
+    .table-wrap { padding: 0 40px 40px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    thead { background: #1a1a2e; color: white; }
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    th:hover { background: #16213e; }
+    th.sorted-asc::after { content: ' ↑'; }
+    th.sorted-desc::after { content: ' ↓'; }
+    td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f1f3; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9fb; }
+
+    .subject { font-weight: 700; color: #1a1a2e; }
+    .card-desc { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .money { text-align: right; font-variant-numeric: tabular-nums; }
+    .gain { color: #16a34a; font-weight: 600; }
+    .loss { color: #dc2626; font-weight: 600; }
+
+    .grade-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      font-weight: 800;
+      font-size: 13px;
+      background: #1a1a2e;
+      color: white;
+    }
+    .grade-10 { background: #16a34a; }
+    .grade-9 { background: #2563eb; }
+    .grade-8 { background: #7c3aed; }
+    .grade-7 { background: #d97706; }
+    .grade-low { background: #6b7280; }
+
+    .sport-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .sport-basketball { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+    .sport-baseball { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+    .sport-football { background: #f3e5f5; color: #6a1b9a; border: 1px solid #ce93d8; }
+    .sport-other { background: #f1f8e9; color: #33691e; border: 1px solid #aed581; }
+
+    .psa-link {
+      display: inline-block;
+      padding: 3px 8px;
+      background: #2563eb;
+      color: white;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .psa-link:hover { background: #1d4ed8; }
+
+    .photo-link {
+      display: inline-block;
+      padding: 3px 8px;
+      background: #f0fdf4;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+      border-radius: 4px;
+      font-size: 11px;
+      text-decoration: none;
+    }
+
+    .tfoot-row td { background: #1a1a2e; color: white; font-weight: 700; font-size: 13px; }
+    .tfoot-row .gain { color: #86efac; }
+
+    @media (max-width: 768px) {
+      header, .scoreboard, .controls, .table-wrap { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Graded Card Collection</h1>
+  <p>John Andres &nbsp;|&nbsp; PSA Certified &nbsp;|&nbsp; Last updated: April 2026</p>
+</header>
+
+<div class="scoreboard">
+  <div class="score-card">
+    <div class="label">Total Cards</div>
+    <div class="value" id="stat-cards">--</div>
+  </div>
+  <div class="score-card accent">
+    <div class="label">My Cost</div>
+    <div class="value" id="stat-cost">--</div>
+  </div>
+  <div class="score-card highlight">
+    <div class="label">PSA Estimate</div>
+    <div class="value" id="stat-psa">--</div>
+  </div>
+  <div class="score-card highlight">
+    <div class="label">Est. Gain/Loss</div>
+    <div class="value" id="stat-gain">--</div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <input type="text" id="search" placeholder="Search player, set, year...">
+  </div>
+  <div class="control-group">
+    <label>Sport:</label>
+    <select id="filter-sport">
+      <option value="">All Sports</option>
+      <option value="Basketball">Basketball</option>
+      <option value="Baseball">Baseball</option>
+      <option value="Football">Football</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Grade:</label>
+    <select id="filter-grade">
+      <option value="">All Grades</option>
+      <option value="10">PSA 10</option>
+      <option value="9">PSA 9</option>
+      <option value="8">PSA 8</option>
+      <option value="7">PSA 7</option>
+      <option value="6">PSA 6</option>
+      <option value="5">PSA 5</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Showing:</label>
+    <span id="row-count" style="font-size:13px; color:#374151; font-weight:600;">--</span>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table id="card-table">
+    <thead>
+      <tr>
+        <th data-col="subject">Player / Subject</th>
+        <th data-col="sport">Sport</th>
+        <th data-col="year">Year</th>
+        <th data-col="set">Set</th>
+        <th data-col="card">Card #</th>
+        <th data-col="grade" style="text-align:center">Grade</th>
+        <th data-col="cost" style="text-align:right">My Cost</th>
+        <th data-col="psa" style="text-align:right">PSA Est.</th>
+        <th data-col="gain" style="text-align:right">Gain/Loss</th>
+        <th>Cert / Photos</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+    <tfoot>
+      <tr class="tfoot-row">
+        <td colspan="6"><strong>TOTALS (filtered)</strong></td>
+        <td class="money" id="foot-cost">--</td>
+        <td class="money" id="foot-psa">--</td>
+        <td class="money gain" id="foot-gain">--</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<script>
+const BASKETBALL_SUBJECTS = ['MICHAEL JORDAN','KAREEM ABDUL-JABBAR','1982 NCAA CHAMPIONS'];
+const BASEBALL_SUBJECTS = ['TOM SEAVER','BILL RIPKEN','DODGERS FUTURE STAR'];
+const FOOTBALL_SUBJECTS = ['BARRY SANDERS'];
+
+function getSport(row) {
+  const subject = (row['Subject'] || '').toUpperCase();
+  const set = (row['Set'] || '').toUpperCase();
+  if (BASKETBALL_SUBJECTS.some(s => subject.includes(s)) || set.includes('NORTH CAROLINA')) return 'Basketball';
+  if (BASEBALL_SUBJECTS.some(s => subject.includes(s)) || set.includes('TOPPS') || set.includes('FLEER')) {
+    if (set.includes('PRO SET') || FOOTBALL_SUBJECTS.some(s => subject.includes(s))) return 'Football';
+    return 'Baseball';
+  }
+  if (set.includes('PRO SET') || FOOTBALL_SUBJECTS.some(s => subject.includes(s))) return 'Football';
+  return 'Other';
+}
+
+function gradeClass(g) {
+  const n = parseInt(g);
+  if (n === 10) return 'grade-10';
+  if (n === 9) return 'grade-9';
+  if (n === 8) return 'grade-8';
+  if (n === 7) return 'grade-7';
+  return 'grade-low';
+}
+
+function sportClass(s) {
+  return 'sport-' + s.toLowerCase();
+}
+
+function fmt$(val) {
+  if (!val || val === '-' || isNaN(parseFloat(val))) return '--';
+  return '$' + parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtGain(cost, psa) {
+  if (!cost || !psa || cost === '-' || psa === '-') return { text: '--', cls: '' };
+  const gain = parseFloat(psa) - parseFloat(cost);
+  const cls = gain >= 0 ? 'gain' : 'loss';
+  const sign = gain >= 0 ? '+' : '';
+  return { text: sign + '$' + Math.abs(gain).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), cls };
+}
+
+const RAW = [
+  {"Item Status":"Active","Item":"1986 FLEER #57 MICHAEL JORDAN","Cert Number":"139827926","Grade Issuer":"PSA","Grade":"7","Year":"1986","Set":"FLEER","Card Number":"57","Subject":"MICHAEL JORDAN","My Cost":"8630.45","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1991 UPPER DECK #SP1 MICHAEL JORDAN","Cert Number":"141090743","Grade Issuer":"PSA","Grade":"10","Year":"1991","Set":"UPPER DECK","Card Number":"SP1","Subject":"MICHAEL JORDAN","My Cost":"1052.62","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1981 TOPPS #302 DODGERS FUTURE STAR","Cert Number":"141090748","Grade Issuer":"PSA","Grade":"6","Year":"1981","Set":"TOPPS","Card Number":"302","Subject":"DODGERS FUTURE STAR","My Cost":"28.73","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1980 TOPPS #500 TOM SEAVER","Cert Number":"141090745","Grade Issuer":"PSA","Grade":"5","Year":"1980","Set":"TOPPS","Card Number":"500","Subject":"TOM SEAVER","My Cost":"7.99","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1989 COLLEGIATE COLLECTION NORTH CAROLINA #65 MICHAEL JORDAN","Cert Number":"141090750","Grade Issuer":"PSA","Grade":"9","Year":"1989","Set":"COLLEGIATE COLLECTION NORTH CAROLINA","Card Number":"65","Subject":"MICHAEL JORDAN","My Cost":"21.86","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1989 FLEER #616 BILL RIPKEN FF ERROR","Cert Number":"141090746","Grade Issuer":"PSA","Grade":"9","Year":"1989","Set":"FLEER","Card Number":"616","Subject":"BILL RIPKEN","My Cost":"189.80","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1989 PRO SET #494 BARRY SANDERS","Cert Number":"141090747","Grade Issuer":"PSA","Grade":"9","Year":"1989","Set":"PRO SET","Card Number":"494","Subject":"BARRY SANDERS","My Cost":"30.06","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1989 COLLEGIATE COLLECTION NORTH CAROLINA #200 1982 NCAA CHAMPIONS","Cert Number":"141090749","Grade Issuer":"PSA","Grade":"10","Year":"1989","Set":"COLLEGIATE COLLECTION NORTH CAROLINA","Card Number":"200","Subject":"1982 NCAA CHAMPIONS","My Cost":"53.92","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1981 TOPPS #20 KAREEM ABDUL-JABBAR","Cert Number":"141090744","Grade Issuer":"PSA","Grade":"7","Year":"1981","Set":"TOPPS","Card Number":"20","Subject":"KAREEM ABDUL-JABBAR","My Cost":"15.30","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1985 NIKE MICHAEL JORDAN PROMO","Cert Number":"141227813","Grade Issuer":"PSA","Grade":"6","Year":"1985","Set":"NIKE","Card Number":"-","Subject":"MICHAEL JORDAN","My Cost":"1016.22","PSA Estimate":"-"},
+  {"Item Status":"Active","Item":"1986 FLEER STICKER #8 MICHAEL JORDAN","Cert Number":"141227812","Grade Issuer":"PSA","Grade":"5","Year":"1986","Set":"FLEER STICKER","Card Number":"8","Subject":"MICHAEL JORDAN","My Cost":"913.14","PSA Estimate":"-"}
+];
+
+let sorted = { col: 'subject', dir: 'asc' };
+let filtered = [...RAW];
+
+function applyFilters() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const sport = document.getElementById('filter-sport').value;
+  const grade = document.getElementById('filter-grade').value;
+  filtered = RAW.filter(row => {
+    const matchSport = !sport || getSport(row) === sport;
+    const matchGrade = !grade || row['Grade'] === grade;
+    const matchSearch = !search ||
+      row['Subject'].toLowerCase().includes(search) ||
+      row['Set'].toLowerCase().includes(search) ||
+      row['Year'].includes(search) ||
+      row['Item'].toLowerCase().includes(search);
+    return matchSport && matchGrade && matchSearch;
+  });
+  sortAndRender();
+}
+
+function sortAndRender() {
+  const colMap = {
+    subject: r => r['Subject'],
+    sport: r => getSport(r),
+    year: r => parseInt(r['Year']) || 0,
+    set: r => r['Set'],
+    card: r => r['Card Number'],
+    grade: r => parseInt(r['Grade']) || 0,
+    cost: r => parseFloat(r['My Cost']) || 0,
+    psa: r => parseFloat(r['PSA Estimate']) || 0,
+    gain: r => (parseFloat(r['PSA Estimate']) || 0) - (parseFloat(r['My Cost']) || 0)
+  };
+
+  filtered.sort((a, b) => {
+    const va = colMap[sorted.col](a);
+    const vb = colMap[sorted.col](b);
+    const cmp = typeof va === 'number' ? va - vb : va.localeCompare(vb);
+    return sorted.dir === 'asc' ? cmp : -cmp;
+  });
+
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+
+  let totalCost = 0, totalPsa = 0;
+
+  filtered.forEach(row => {
+    const sport = getSport(row);
+    const gain = fmtGain(row['My Cost'], row['PSA Estimate']);
+    const cost = parseFloat(row['My Cost']) || 0;
+    totalCost += cost;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="subject">${row['Subject']}</div>
+        <div class="card-desc">${row['Item']}</div>
+      </td>
+      <td><span class="sport-badge ${sportClass(sport)}">${sport}</span></td>
+      <td>${row['Year']}</td>
+      <td>${row['Set']}</td>
+      <td>${row['Card Number'] !== '-' ? row['Card Number'] : ''}</td>
+      <td style="text-align:center"><span class="grade-badge ${gradeClass(row['Grade'])}">${row['Grade']}</span></td>
+      <td class="money">${fmt$(row['My Cost'])}</td>
+      <td class="money">${fmt$(row['PSA Estimate'])}</td>
+      <td class="money ${gain.cls}">${gain.text}</td>
+      <td>
+        <a class="psa-link" href="https://www.psacard.com/cert/${row['Cert Number']}" target="_blank">PSA ${row['Cert Number']}</a>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('foot-cost').textContent = '$' + totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('foot-psa').textContent = '--';
+  document.getElementById('foot-gain').textContent = '--';
+  document.getElementById('row-count').textContent = filtered.length + ' of ' + RAW.length + ' cards';
+
+  document.getElementById('stat-cards').textContent = filtered.length;
+  document.getElementById('stat-cost').textContent = '$' + totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('stat-psa').textContent = '--';
+  document.getElementById('stat-gain').textContent = '--';
+}
+
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sorted.col === col) {
+      sorted.dir = sorted.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sorted.col = col;
+      sorted.dir = col === 'cost' || col === 'psa' || col === 'gain' ? 'desc' : 'asc';
+    }
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sorted-asc', 'sorted-desc'));
+    th.classList.add('sorted-' + sorted.dir);
+    sortAndRender();
+  });
+});
+
+document.getElementById('search').addEventListener('input', applyFilters);
+document.getElementById('filter-sport').addEventListener('change', applyFilters);
+document.getElementById('filter-grade').addEventListener('change', applyFilters);
+
+applyFilters();
+document.querySelector('th[data-col="subject"]').classList.add('sorted-asc');
+</script>
+</body>
+</html>
