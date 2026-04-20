@@ -351,8 +351,8 @@ function sortAndRender() {
     type: r => coinType(r),
     year: r => r['product-name'],
     qty: r => parseInt(r['quantity']) || 0,
-    price: r => parseInt(r['price-in-pennies']) || 0,
-    total: r => (parseInt(r['price-in-pennies']) || 0) * (parseInt(r['quantity']) || 0),
+    price: r => { const q = parseInt(r['quantity']) || 1; return (parseInt(r['price-in-pennies']) || 0) / q; },
+    total: r => parseInt(r['price-in-pennies']) || 0,
     condition: r => r['condition-string'],
     grading: r => r['grading-company'] || '',
     entered: r => r['date-entered']
@@ -376,8 +376,8 @@ function renderTable() {
 
   filtered.forEach(row => {
     const qty = parseInt(row['quantity']) || 0;
-    const price = parseInt(row['price-in-pennies']) || 0;
-    const total = price * qty;
+    const total = parseInt(row['price-in-pennies']) || 0;
+    const price = qty > 0 ? total / qty : 0;
     totalQty += qty;
     totalVal += total;
 
