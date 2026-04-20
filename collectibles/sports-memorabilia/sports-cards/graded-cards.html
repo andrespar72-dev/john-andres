@@ -98,6 +98,7 @@
     .grade-8 { background: #7c3aed; }
     .grade-7 { background: #d97706; }
     .grade-low { background: #6b7280; }
+    .grade-pending { background: #d1d5db; color: #374151; font-size: 10px; width: auto; padding: 4px 6px; border-radius: 6px; }
 
     .sport-badge {
       display: inline-block;
@@ -231,8 +232,8 @@
 
 <script>
 const BASKETBALL_SUBJECTS = ['MICHAEL JORDAN','KAREEM ABDUL-JABBAR','1982 NCAA CHAMPIONS'];
-const BASEBALL_SUBJECTS = ['TOM SEAVER','BILL RIPKEN','DODGERS FUTURE STAR'];
-const FOOTBALL_SUBJECTS = ['BARRY SANDERS'];
+const BASEBALL_SUBJECTS = ['TOM SEAVER','BILL RIPKEN','DODGERS FUTURE STAR','JOHNNY BENCH','ROOKIE SHORTSTOPS'];
+const FOOTBALL_SUBJECTS = ['BARRY SANDERS','WALTER PAYTON','JOE GREENE','ROGER STAUBACH','KEN ANDERSON','TONY DORSETT'];
 
 function getSport(row) {
   const subject = (row['Subject'] || '').toUpperCase();
@@ -247,6 +248,7 @@ function getSport(row) {
 }
 
 function gradeClass(g) {
+  if (g === 'Pending') return 'grade-pending';
   const n = parseInt(g);
   if (n === 10) return 'grade-10';
   if (n === 9) return 'grade-9';
@@ -283,7 +285,16 @@ const RAW = [
   {"Item Status":"Active","Item":"1989 COLLEGIATE COLLECTION NORTH CAROLINA #200 1982 NCAA CHAMPIONS","Cert Number":"141090749","Grade Issuer":"PSA","Grade":"10","Year":"1989","Set":"COLLEGIATE COLLECTION NORTH CAROLINA","Card Number":"200","Subject":"1982 NCAA CHAMPIONS","My Cost":"53.92","PSA Estimate":"-"},
   {"Item Status":"Active","Item":"1981 TOPPS #20 KAREEM ABDUL-JABBAR","Cert Number":"141090744","Grade Issuer":"PSA","Grade":"7","Year":"1981","Set":"TOPPS","Card Number":"20","Subject":"KAREEM ABDUL-JABBAR","My Cost":"15.30","PSA Estimate":"-"},
   {"Item Status":"Active","Item":"1985 NIKE MICHAEL JORDAN PROMO","Cert Number":"141227813","Grade Issuer":"PSA","Grade":"6","Year":"1985","Set":"NIKE","Card Number":"-","Subject":"MICHAEL JORDAN","My Cost":"1016.22","PSA Estimate":"-"},
-  {"Item Status":"Active","Item":"1986 FLEER STICKER #8 MICHAEL JORDAN","Cert Number":"141227812","Grade Issuer":"PSA","Grade":"5","Year":"1986","Set":"FLEER STICKER","Card Number":"8","Subject":"MICHAEL JORDAN","My Cost":"913.14","PSA Estimate":"-"}
+  {"Item Status":"Active","Item":"1986 FLEER STICKER #8 MICHAEL JORDAN","Cert Number":"141227812","Grade Issuer":"PSA","Grade":"5","Year":"1986","Set":"FLEER STICKER","Card Number":"8","Subject":"MICHAEL JORDAN","My Cost":"913.14","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1978 TOPPS #295 JOE GREENE","Cert Number":"141093728","Grade Issuer":"PSA","Grade":"Pending","Year":"1978","Set":"TOPPS","Card Number":"295","Subject":"JOE GREENE","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1978 TOPPS #200 WALTER PAYTON ALL-PRO","Cert Number":"141093729","Grade Issuer":"PSA","Grade":"Pending","Year":"1978","Set":"TOPPS","Card Number":"200","Subject":"WALTER PAYTON","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1977 TOPPS #360 WALTER PAYTON ALL-PRO","Cert Number":"141093730","Grade Issuer":"PSA","Grade":"Pending","Year":"1977","Set":"TOPPS","Card Number":"360","Subject":"WALTER PAYTON","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1977 TOPPS #45 ROGER STAUBACH","Cert Number":"141093731","Grade Issuer":"PSA","Grade":"Pending","Year":"1977","Set":"TOPPS","Card Number":"45","Subject":"ROGER STAUBACH","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1973 TOPPS #34 KEN ANDERSON","Cert Number":"141093732","Grade Issuer":"PSA","Grade":"Pending","Year":"1973","Set":"TOPPS","Card Number":"34","Subject":"KEN ANDERSON","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1979 TOPPS #480 WALTER PAYTON","Cert Number":"141093733","Grade Issuer":"PSA","Grade":"Pending","Year":"1979","Set":"TOPPS","Card Number":"480","Subject":"WALTER PAYTON","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1979 TOPPS #200 JOHNNY BENCH","Cert Number":"141093734","Grade Issuer":"PSA","Grade":"Pending","Year":"1979","Set":"TOPPS","Card Number":"200","Subject":"JOHNNY BENCH","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1978 TOPPS #315 TONY DORSETT","Cert Number":"141093735","Grade Issuer":"PSA","Grade":"Pending","Year":"1978","Set":"TOPPS","Card Number":"315","Subject":"TONY DORSETT","My Cost":"-","PSA Estimate":"-"},
+  {"Item Status":"Pending","Item":"1978 TOPPS #707 ROOKIE SHORTSTOPS","Cert Number":"141093736","Grade Issuer":"PSA","Grade":"Pending","Year":"1978","Set":"TOPPS","Card Number":"707","Subject":"ROOKIE SHORTSTOPS","My Cost":"-","PSA Estimate":"-"}
 ];
 
 let sorted = { col: 'subject', dir: 'asc' };
