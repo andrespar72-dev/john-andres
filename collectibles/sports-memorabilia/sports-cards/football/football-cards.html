@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Football Card Inventory — John Andres</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f5f7; color: #1a1a2e; }
+
+    header {
+      background: linear-gradient(135deg, #1a3a1a 0%, #2d5a1b 100%);
+      color: white;
+      padding: 32px 40px 24px;
+    }
+    header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+    header p { font-size: 13px; color: #a8d5a2; margin-top: 4px; }
+
+    .scoreboard {
+      display: flex;
+      gap: 16px;
+      padding: 24px 40px;
+      background: white;
+      border-bottom: 1px solid #e2e6ea;
+      flex-wrap: wrap;
+    }
+    .score-card {
+      flex: 1;
+      min-width: 140px;
+      background: #f8f9fb;
+      border: 1px solid #e2e6ea;
+      border-radius: 8px;
+      padding: 14px 18px;
+    }
+    .score-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: #6b7280; }
+    .score-card .value { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-top: 4px; }
+    .score-card.highlight .value { color: #16a34a; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      padding: 20px 40px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls input, .controls select {
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: white;
+      color: #1a1a2e;
+    }
+    .controls input { width: 260px; }
+    .controls label { font-size: 12px; color: #6b7280; margin-right: 4px; }
+    .controls .control-group { display: flex; align-items: center; gap: 6px; }
+
+    .table-wrap { padding: 0 40px 40px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    thead { background: #1a3a1a; color: white; }
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    th:hover { background: #2d5a1b; }
+    th.sorted-asc::after { content: ' ↑'; }
+    th.sorted-desc::after { content: ' ↓'; }
+    td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f1f3; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8f9fb; }
+
+    .card-name { font-weight: 600; color: #1a1a2e; }
+    .card-num { color: #6b7280; font-size: 12px; font-variant-numeric: tabular-nums; }
+    .qty { text-align: center; font-weight: 600; }
+    .money { text-align: right; font-variant-numeric: tabular-nums; }
+    .total-value { font-weight: 700; color: #16a34a; }
+
+    .tfoot-row td { background: #1a3a1a; color: white; font-weight: 700; font-size: 13px; }
+    .tfoot-row .total-value { color: #86efac; }
+
+    @media (max-width: 768px) {
+      header, .scoreboard, .controls, .table-wrap { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Football Card Inventory</h1>
+  <p>John Andres &nbsp;|&nbsp; Last updated: April 2026</p>
+</header>
+
+<div class="scoreboard">
+  <div class="score-card">
+    <div class="label">Line Items</div>
+    <div class="value" id="stat-lines">--</div>
+  </div>
+  <div class="score-card">
+    <div class="label">Total Cards</div>
+    <div class="value" id="stat-qty">--</div>
+  </div>
+  <div class="score-card highlight">
+    <div class="label">Est. Total Value</div>
+    <div class="value" id="stat-value">--</div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <input type="text" id="search" placeholder="Search player name or card number...">
+  </div>
+  <div class="control-group">
+    <label>Showing:</label>
+    <span id="row-count" style="font-size:13px; color:#374151; font-weight:600;">--</span>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table id="card-table">
+    <thead>
+      <tr>
+        <th data-col="num" style="text-align:center">#</th>
+        <th data-col="name">Player / Card</th>
+        <th data-col="qty" style="text-align:center">Qty</th>
+        <th data-col="price" style="text-align:right">Value Each</th>
+        <th data-col="total" style="text-align:right">Total Value</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+    <tfoot>
+      <tr class="tfoot-row">
+        <td colspan="2"><strong>TOTALS (filtered)</strong></td>
+        <td class="qty" id="foot-qty">--</td>
+        <td></td>
+        <td class="money total-value" id="foot-total">--</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<script>
+const DATA = [
+  [1,74,"John Mackey",3.63,3.63],
+  [2,34,"John Mackey",4.38,8.76],
+  [2,13,"Alex Karras",6.59,13.18],
+  [2,1,"Carl Eller",6.46,12.92],
+  [2,32,"Floyd Little",4.37,8.74],
+  [2,58,"Carl Lockhart",3.69,7.38],
+  [2,15,"Dave Robinson",6.1,12.2],
+  [2,25,"Mike Garrett",3.12,6.24],
+  [2,52,"Homer Jones",2.51,5.02],
+  [2,55,"Johnny Unitas",17.62,35.24],
+  [2,21,"Paul Warfield",4.4,8.8],
+  [2,47,"Daryle Lamonica",5.38,10.76],
+  [2,11,"George Sauer",3.17,6.34],
+  [2,23,"Mel Renfro",4.01,8.02],
+  [2,42,"Bobby Bell",3.5,7],
+  [2,14,"Larry Wilson",2.99,5.98],
+  [2,36,"David Grayson",3.2,6.4],
+  [2,56,"Tommy Nobis",3.53,7.06],
+  [2,54,"Bob Lilly",7.67,15.34],
+  [2,28,"Dave Wilcox",3.75,7.5],
+  [2,40,"Lance Alworth",7.5,15],
+  [2,49,"Calvin Hill",4.95,9.9],
+  [2,6,"Len Dawson",11.39,22.78],
+  [2,33,"Ken Willard",3.32,6.64],
+  [1,57,"Ed Meador",2.51,2.51],
+  [2,59,"Don Maynard",4.25,8.5],
+  [2,7,"Gene Washington",4.39,8.78],
+  [2,27,"Carl Garrett",2.98,5.96],
+  [2,10,"Dick Butkus",16.91,33.82],
+  [2,38,"Deacon Jones",8.25,16.5],
+  [2,19,"Dick Post",3.5,7],
+  [2,30,"Tom Woodeshick",1.99,3.98],
+  [2,26,"Harry Jacobs",2.26,4.52],
+  [2,45,"Dick Shiner",12.5,25],
+  [2,9,"Norman Snead",3.27,6.54],
+  [2,12,"Bill Kilmer",4.15,8.3],
+  [2,43,"George Webster",2.94,5.88],
+  [2,31,"Leroy Kelly",3.98,7.96],
+  [2,35,"Merlin Olsen",6.95,13.9],
+  [2,39,"Bob Hayes",9.54,19.08],
+  [2,8,"Jim Nance",4.1,8.2],
+  [2,24,"Roy Jefferson",3.25,6.5],
+  [2,53,"Sonny Jurgensen",5.53,11.06],
+  [2,4,"Bill Nelsen",3.34,6.68],
+  [2,60,"Greg Cook",4.06,8.12],
+  [2,46,"Bubba Smith",6.51,13.02],
+  [2,5,"Travis Williams",4.25,8.5],
+  [2,29,"Matt Snell",4.06,8.12],
+  [2,17,"Bob Griese",12.04,24.08],
+  [2,48,"O.J. Simpson",33.25,66.5],
+  [2,2,"Jim Otto",5.25,10.5],
+  [2,50,"Fred Biletnikoff",7.13,14.26],
+  [2,16,"Bill Brown",3.63,7.26],
+  [2,22,"Mel Farr",3.04,6.08],
+  [2,41,"Larry Csonka",9.97,19.94],
+  [2,18,"Al Denson",1.91,3.82],
+  [2,20,"Jan Stenerud",4.84,9.68],
+  [2,44,"John Roland",4.1,8.2],
+  [2,51,"Gale Sayers",19.74,39.48],
+  [2,3,"Tom Matte",4.47,8.94],
+  [2,37,"Lem Barney",3.7,7.4],
+  [1,17,"Floyd Little",2,2],
+  [1,3,"Joe Namath",5,5],
+  [1,50,"Bart Starr",3.01,3.01],
+  [2,3,"Joe Namath",5,10],
+  [1,43,"Terry Bradshaw",11.18,11.18],
+  [1,169,"Daryle Lamonica",2.33,2.33],
+  [1,156,"Dan Pastorini",3.32,3.32],
+  [1,185,"Mel Renfro",2.88,2.88],
+  [1,15,"Terry Bradshaw",9.99,9.99],
+  [1,414,"Earl Morrall",1.99,1.99],
+  [1,322,"Dan Dierdorf",6.39,6.39],
+  [2,25,"George Blanda",3.22,6.44],
+  [1,338,"Tom Matte",1.99,1.99],
+  [2,355,"Jim Plunkett",2.26,4.52],
+  [2,34,"Ken Anderson",8.5,17],
+  [1,487,"Ken Stabler",11.86,11.86],
+  [1,64,"Clarence Scott",1.97,1.97],
+  [2,205,"Merlin Olsen",2.25,4.5],
+  [1,87,"Mike Phipps",1.76,1.76],
+  [1,315,"Isaac Curtis",1.9,1.9],
+  [1,452,"Preston Pearson",2.12,2.12],
+  [1,444,"Terry Metcalf",1.99,1.99],
+  [1,524,"Bert Jones",2.5,2.5],
+  [1,237,"John Garlington",1.57,1.57],
+  [1,129,"Fran Tarkenton",4.25,4.25],
+  [1,11,"Frank Pitts",2.13,2.13],
+  [1,490,"Fred Biletnikoff",2.86,2.86],
+  [1,447,"Bill Bergey",1.87,1.87],
+  [1,350,"Leroy Kelly",2.25,2.25],
+  [2,462,"Conference Championships",3.2,6.4],
+  [1,36,"Walt Sumner",1.29,1.29],
+  [2,110,"Greg Pruitt",3.18,6.36],
+  [1,516,"Joe Jones",1.59,1.59],
+  [1,113,"Chuck Foreman",3.9,3.9],
+  [1,54,"Rayfield Wright",3.24,3.24],
+  [1,210,"Bob Trumpy",1.73,1.73],
+  [1,505,"Nick Buoniconti",1.89,1.89],
+  [2,395,"Jim Hart",1.72,3.44],
+  [1,373,"Howard Fest",1.55,1.55],
+  [1,486,"Vern Holland",1.59,1.59],
+  [1,159,"Don Cockroft",1.59,1.59],
+  [1,376,"Bob Babich",1.59,1.59],
+  [1,70,"Archie Manning",3.26,3.26],
+  [1,401,"Ken Anderson",2.81,2.81],
+  [1,17,"Alan Page",2.4,2.4],
+  [1,135,"Archie Manning",1.84,1.84],
+  [2,525,"Merlin Olsen",1.86,3.72],
+  [3,175,"Bob Lilly",3.35,10.05],
+  [1,285,"Lee Roy Jordan",2,2],
+  [2,425,"Joe Greene",3.45,6.9],
+  [1,300,"Franco Harris",3.75,3.75],
+  [1,275,"Norm Snead",1.65,1.65],
+  [1,199,"Bert Jones",2.5,2.5],
+  [2,282,"Lynn Swann",25.49,50.98],
+  [2,120,"Len Dawson",3.07,6.14],
+  [1,355,"O.J. Simpson",3.7,3.7],
+  [1,461,"Terry Bradshaw",6.5,6.5],
+  [2,510,"Jim Hart",1.75,3.5],
+  [2,475,"Mercury Morris",2.22,4.44],
+  [1,132,"Floyd Little",4.76,4.76],
+  [1,310,"Roman Gabriel",2,2],
+  [1,480,"Bill Kilmer",1.71,1.71],
+  [1,450,"Terry Metcalf",1.9,1.9],
+  [1,321,"Jim Plunkett",1.99,1.99],
+  [1,7,"George Blanda [Black Jersey]",2.16,2.16],
+  [1,313,"John Riggins",3,3],
+  [2,416,"Joe Theismann",16.75,33.5],
+  [1,380,"Art Shell",2.54,2.54],
+  [1,201,"Anderson, Tarkenton [Passing Leaders]",2.07,2.07],
+  [1,385,"Jim Marshall",1.77,1.77],
+  [1,516,"Brian Sipe",5.32,5.32],
+  [1,376,"Steve Grogan",4.34,4.34],
+  [1,383,"Ahmad Rashad",1.99,1.99],
+  [1,69,"Tommy Nobis",1.86,1.86],
+  [1,7,"Fran Tarkenton",1.79,1.79],
+  [1,220,"Jack Lambert",25.66,25.66],
+  [1,160,"Jan Stenerud",1.63,1.63],
+  [1,426,"Ron Jaworski",4.47,4.47],
+  [1,1,"George Blanda",2.31,2.31],
+  [1,490,"Lee Roy Jordan",1.34,1.34],
+  [1,105,"Carl Eller",2.3,2.3],
+  [1,354,"Craig Morton",1.69,1.69],
+  [1,330,"Chris Hanburger",1.49,1.49],
+  [2,104,"Jim Plunkett",3,6],
+  [1,10,"Ken Anderson",2.08,2.08],
+  [1,450,"Charley Taylor",2.06,2.06],
+  [1,203,"O.J.Simpson, J.Otis [Rushing Leaders]",1.39,1.39],
+  [1,500,"Fran Tarkenton",2.99,2.99],
+  [1,55,"Bill Kilmer",1.99,1.99],
+  [2,204,"O.J.Simpson, C.Foreman [Scoring Leaders]",1.52,3.04],
+  [1,195,"Lynn Swann",4,4],
+  [1,360,"Walter Payton",17.65,17.65],
+  [1,453,"O.J. Simpson",2.75,2.75],
+  [1,400,"Fran Tarkenton",3.16,3.16],
+  [2,74,"Joe Theismann",3.55,7.1],
+  [1,300,"Franco Harris",2.99,2.99],
+  [1,140,"Jack Ham",2.5,2.5],
+  [1,314,"Ed Too Tall Jones",2.88,2.88],
+  [1,55,"John Riggins",2.72,2.72],
+  [1,495,"Bill Kilmer",1.56,1.56],
+  [2,480,"Jack Lambert",4.16,8.32],
+  [1,3,"Rushing Leaders: Payton, Simpson",10,10],
+  [1,177,"Steve Largent",20.43,20.43],
+  [1,45,"Roger Staubach",4.22,4.22],
+  [1,359,"Ahmad Rashad",1.98,1.98],
+  [2,281,"Rocky Bleier",3,6],
+  [1,245,"Terry Bradshaw",6,6],
+  [2,515,"Bob Griese",2.78,5.56],
+  [1,315,"Tony Dorsett",12.32,12.32],
+  [1,125,"Ahmad Rashad",2.6,2.6],
+  [3,166,"NFC Championship",1.62,4.86],
+  [1,65,"Terry Bradshaw",5.16,5.16],
+  [3,295,"Joe Greene",3.37,10.11],
+  [1,2,"Craig Morton",1.83,1.83],
+  [1,334,"Scoring Leaders: Mann, Payton",2.5,2.5],
+  [1,500,"Franco Harris",2.62,2.62],
+  [1,120,"Bob Griese",1.97,1.97],
+  [1,24,"Danny White",2.21,2.21],
+  [1,405,"Craig Morton",1.36,1.36],
+  [1,331,"Passing Leaders: Griese, Staubach",2.6,2.6],
+  [1,200,"Walter Payton",8.25,8.25],
+  [1,3,"Walter Payton, Earl Campbell [Rushing Leaders]",3.73,3.73],
+  [4,387,"Dan Fouts",3.02,12.08],
+  [1,480,"Walter Payton [All Pro]",3.85,3.85],
+  [1,429,"Danny White",1.85,1.85],
+  [1,308,"Ozzie Newsome",5.8,5.8],
+  [1,331,"Earl Campbell [Record Breaker]",4.6,4.6],
+  [1,48,"Doug Williams",3.5,3.5],
+  [1,450,"Steve Largent",1.88,1.88],
+  [2,253,"Jim Hart",1.31,2.62],
+  [1,35,"Bob Griese",1.4,1.4],
+  [1,361,"James Lofton",1.65,1.65],
+  [1,403,"Cliff Branch",1.58,1.58],
+  [6,220,"Franco Harris",1.67,10.02],
+  [1,255,"John Matuszak",1.74,1.74],
+  [4,495,"Joe Greene",2.11,8.44],
+  [1,425,"Craig Morton",1.51,1.51],
+  [4,342,"Mark Gastineau",3.55,14.2],
+  [1,476,"John Stallworth",1.35,1.35],
+  [3,398,"Calvin Hill",1.47,4.41],
+  [1,505,"Lyle Alzado",1.72,1.72],
+  [4,271,"Steve Largent",1.89,7.56],
+  [1,415,"Greg Pruitt",1.52,1.52],
+  [3,405,"Ken Stabler",1.7,5.1],
+  [5,473,"Billy Sims",1.58,7.9],
+  [4,250,"Bill Bergey",1.44,5.76],
+  [1,10,"Mike Webster",1.59,1.59],
+  [8,138,"Tony Dorsett",1.65,13.2],
+  [3,430,"James Lofton",1.5,4.5],
+  [1,364,"Steve DeBerg",1.5,1.5],
+  [3,55,"Phil Simms",1.34,4.02],
+  [1,103,"Joe Cribbs",1.27,1.27],
+  [2,310,"Art Still",1.81,3.62],
+  [1,312,"Charlie Joiner",1.49,1.49],
+  [1,140,"Ahmad Rashad",1.85,1.85],
+  [3,202,"Walter Payton",2.5,7.5],
+  [1,235,"Jack Ham",1.44,1.44],
+  [7,88,"Terry Bradshaw",1.56,10.92],
+  [3,375,"Terry Bradshaw",2.53,7.59],
+  [5,500,"Tony Dorsett",1.99,9.95],
+  [5,43,"Art Shell",1.37,6.85],
+  [9,165,"Joe Theismann",1.54,13.86],
+  [1,150,"Kellen Winslow",3.72,3.72],
+  [1,158,"Archie Manning",1.27,1.27],
+  [3,482,"Bob Griese",1.81,5.43],
+  [5,343,"Steve Largent",1.75,8.75],
+  [3,135,"Jim Plunkett",1.49,4.47],
+  [5,457,"Ahmad Rashad",1.48,7.4],
+  [1,422,"Dwight Clark",2.84,2.84],
+  [2,155,"Jack Lambert",1.67,3.34],
+  [2,100,"Billy Sims",4.03,8.06],
+  [1,401,"Jim Hart",1.75,1.75],
+  [2,218,"Lester Hayes",1.79,3.58],
+  [8,153,"Dan Fouts",1.47,11.76],
+  [1,503,"Joe Ferguson",1.67,1.67],
+  [3,210,"Lemar Parrish",1.53,4.59],
+  [7,316,"Dan Hampton",6.1,42.7],
+  [5,194,"Art Monk",5.5,27.5],
+  [2,360,"Joe Cribbs",1.48,2.96],
+  [2,216,"Joe Montana",91,182],
+  [1,160,"Alan Page",1.49,1.49],
+  [3,1,"Ken Anderson [Record Breaker]",1.61,4.83],
+  [3,38,"Ken Anderson [All Pro]",1.69,5.07],
+  [1,39,"Ken Anderson",1.47,1.47],
+  [3,2,"Tony Dorsett [Record Breaker]",1.8,5.4],
+  [6,1,"Ken Anderson [Record Breaker]",1.15,6.9],
+  [2,28,"Walter Payton [Bears Team Leaders]",1.55,3.1],
+  [3,42,"Tony Dorsett [Cowboys Team Leaders]",1.52,4.56],
+  [2,232,"Ken Anderson",1.17,2.34],
+  [2,56,"Danny White",1.57,3.14],
+  [1,248,"Danny White",1.74,1.74],
+  [1,373,"Mike Green",1.21,1.21],
+  [1,185,"Art Monk",1.16,1.16],
+  [1,210,"Ken Anderson",1.74,1.74],
+  [1,381,"Dave Brown",1.4,1.4],
+  [1,98,"Jan Stenerud",1.34,1.34],
+  [1,195,"NFL Scoring Leaders",0.88,0.88],
+  [1,312,"Bruce Hardy",1.49,1.49],
+  [1,364,"Sam Washington",1.54,1.54],
+  [1,154,"Keith Fahnhorst",1.79,1.79],
+  [1,372,"Dan Fouts",1.75,1.75],
+  [1,264,"Vernon Maxwell",1,1],
+  [1,93,"Tommy Hannon",1.36,1.36],
+  [2,360,"Mike Merriweather",1.6,3.2],
+  [1,227,"Ricky Feacher",1.5,1.5],
+  [1,169,"Steve DeBerg",1.56,1.56],
+  [2,84,"Mike Lansford",1.35,2.7],
+  [1,118,"Bobby Johnson",1.43,1.43],
+  [1,44,"Gary Hogeboom",1.65,1.65],
+  [2,342,"Pat Leahy",1.19,2.38],
+  [1,198,"Greg Bell [Bills Team Leaders]",1.53,1.53],
+  [1,148,"Joe Montana [49ers Team Leaders]",1.38,1.38],
+  [1,167,"Gerald Carter",1.49,1.49],
+  [1,139,"Al Baker",1.59,1.59],
+  [1,99,"Sammy White",1.25,1.25],
+  [1,105,"Brian Hansen",1.59,1.59],
+  [1,189,"John Riggins",1.49,1.49],
+  [1,320,"Tony Collins [Pats. Team Leaders]",0.35,0.35],
+  [1,178,"Charlie Brown",1.63,1.63],
+  [2,147,"Lionel Washington",0.15,0.3],
+  [1,147,"Lionel Washington",0.15,0.15],
+  [1,87,"Doug Smith",1.49,1.49],
+  [1,106,"Rickey Jackson",1.45,1.45],
+  [1,224,"Reggie Camp",1.48,1.48],
+  [1,284,"Chris Bahr",1.54,1.54],
+  [2,195,"NFL Scoring Leaders",0.88,1.76],
+  [1,157,"Joe Montana",3.6,3.6],
+  [1,339,"Bobby Humphery",1.73,1.73],
+  [2,12,"Stacey Bailey",0.4,0.8],
+  [1,113,"Rob Carpenter",1.33,1.33],
+  [1,51,"Danny White",1.44,1.44],
+  [1,342,"Pat Leahy",1.19,1.19],
+  [1,203,"Steve Freeman",1.52,1.52],
+  [1,358,"Louis Lipps",2.28,2.28],
+  [1,229,"Al Gross",1,1],
+  [1,348,"Pat Ryan",1.49,1.49],
+  [1,241,"Tom Jackson",1.59,1.59],
+  [1,321,"Raymond Clayborn",1.65,1.65],
+  [2,98,"Jan Stenerud",1.34,2.68],
+  [2,203,"Steve Freeman",1.52,3.04],
+  [1,161,"Freddie Solomon",1,1],
+  [2,265,"Randy McMillan",1.04,2.08],
+  [1,231,"Paul McDonald",1,1],
+  [1,160,"Jack Reynolds",1.49,1.49],
+  [1,6,"Walter Payton [Record Breaker]",2.83,2.83],
+  [1,395,"Checklist 133-264",1.71,1.71],
+  [1,347,"Marvin Powell",1.04,1.04],
+  [2,113,"Rob Carpenter",1.33,2.66],
+  [1,36,"Bob Thomas",1.56,1.56],
+  [1,94,"Tommy Kramer",1.44,1.44],
+  [1,349,"Mickey Shuler",1.59,1.59],
+  [1,60,"Ken Jenkins",0.76,0.76],
+  [1,383,"Dan Doornink",1.46,1.46],
+  [1,176,"James Wilder",1.21,1.21],
+  [1,365,"Mike Webster",1.63,1.63],
+  [2,163,"Wendell Tyler",1.42,2.84],
+  [1,371,"Bobby Duckworth",1.04,1.04],
+  [1,223,"Chip Banks",1.15,1.15],
+  [1,278,"Bill Maas",1.52,1.52],
+  [1,250,"Carter Hartwig",1.59,1.59],
+  [1,247,"Sammy Winder",1.89,1.89],
+  [1,163,"Wendell Tyler",1.42,1.42],
+  [2,60,"Ken Jenkins",0.76,1.52],
+  [1,91,"Ted Brown",1.42,1.42],
+  [1,335,"M.Gastineau, J.Ferguson [Jets Team Leaders]",0.77,0.77],
+  [1,25,"Gary Fencik",1.52,1.52],
+  [1,84,"Mike Lansford",1.35,1.35],
+  [1,37,"Tony Dorsett [Cowboys Team Leaders]",1.45,1.45],
+  [1,66,"Lynn Dickey [Packers Team Leaders]",1.17,1.17],
+  [1,12,"Stacey Bailey",0.4,0.4],
+  [1,265,"Randy McMillan",1.04,1.04],
+  [1,32,"Steve McMichael",5,5],
+  [1,253,"Mike Munchak",2.86,2.86],
+  [1,92,"Greg Coleman",1.2,1.2],
+  [1,97,"Darrin Nelson",1.61,1.61],
+  [1,268,"Leo Wisniewski",1.08,1.08],
+  [1,360,"Mike Merriweather",1.6,1.6],
+  [1,119,"Lionel Manuel",1.74,1.74],
+  [2,238,"John Elway",3.33,6.66],
+  [1,374,"Pete Holohan",1,1],
+  [1,76,"Bucky Scribner",1.59,1.59],
+  [1,201,"Joe Ferguson",1.71,1.71],
+  [1,146,"Pat Tilley",1,1],
+  [1,125,"Danny White",1.37,1.37],
+  [1,145,"Jim Everett",2.03,2.03],
+  [2,28,"Andre Reed",1,2],
+  [2,19,"Roger Craig",1.58,3.16],
+  [2,1,"Charles White",1.87,3.74],
+  [2,7,"Drew Hill",1.81,3.62],
+  [2,4,"Jerry Rice",1.88,3.76],
+  [2,15,"Herschel Walker",1.36,2.72],
+  [2,21,"Henry Ellard",1.1,2.2],
+  [2,5,"Gary Clark",1.25,2.5],
+  [2,14,"Steve Largent",1.38,2.76],
+  [2,17,"Gerald Riggs",1.45,2.9],
+  [2,24,"Eric Martin",1.5,3],
+  [1,28,"Andre Reed",1,1],
+  [2,18,"Mark Bavaro",2.47,4.94],
+  [2,23,"Stump Mitchell",1.37,2.74],
+  [2,6,"Carlos Carson",1.55,3.1],
+  [2,22,"Mike Quick",1.54,3.08],
+  [2,8,"Curt Warner",0.99,1.98],
+  [2,26,"Chris Burkett",1.25,2.5],
+  [1,2,"Eric Dickerson",1.13,1.13],
+  [2,12,"Anthony Carter",1.5,3],
+  [1,7,"Drew Hill",1.81,1.81],
+  [2,9,"Al Toon",1.17,2.34],
+  [2,25,"Mark Clayton",1.52,3.04],
+  [1,5,"Gary Clark",1.25,1.25],
+  [2,11,"Ernest Givins",0.93,1.86],
+  [2,16,"James Lofton",0.88,1.76],
+  [2,3,"J.T. Smith",1.47,2.94],
+  [2,13,"Rueben Mayes",1.38,2.76],
+  [2,20,"Webster Slaughter",1.31,2.62],
+  [1,3,"J.T. Smith",1.47,1.47],
+  [2,27,"Marcus Allen",1.59,3.18],
+  [2,10,"Mike Rozier",1.37,2.74],
+  [2,2,"Eric Dickerson",1.13,2.26],
+  [102,183,"Tim Brown",1.48,150.96],
+  [18,89,"Michael Irvin",1.79,32.22],
+  [1,548,"Carnell Lake",1.57,1.57],
+  [1,560,"Darrin Nelson",1.22,1.22],
+  [2,66,"Anthony Munoz",1.33,2.66],
+  [7,58,"Boomer Esiason",1,7],
+  [81,498,"Derrick Thomas",1.69,136.89],
+  [46,220,"Dan Marino",1.54,70.84],
+  [22,100,"John Elway",1.5,33],
+  [23,354,"Rod Woodson",1.5,34.5],
+  [1,545,"Willie Anderson",1.49,1.49],
+  [1,550,"Sterling Sharpe",1.99,1.99],
+  [1,558,"Chip Banks",1.39,1.39],
+  [85,22,"Jim Kelly",1.31,111.35],
+  [68,381,"Joe Montana",1.5,102],
+  [1,556,"Paul Palmer",1.43,1.43],
+  [1,552,"Clarence Verdin",1.46,1.46],
+  [56,490,"Troy Aikman",3.07,171.92],
+  [1,541,"Art Shell",1.7,1.7],
+  [1,542,"Lemuel Stinson",1.42,1.42],
+  [1,546,"Dave Meggett",1.61,1.61],
+  [53,486,"Deion Sanders",2.07,109.71],
+  [1,553,"Mervyn Fernandez",1.49,1.49],
+  [1,559,"Steve Pelluer",1.02,1.02],
+  [1,555,"Gary Hogeboom",1.54,1.54],
+  [1,547,"Lewis Tillman",1.24,1.24],
+  [1,561,"Herschel Walker",1.49,1.49],
+  [115,383,"Jerry Rice",1.27,146.05],
+  [1,554,"Ottis Anderson",1.47,1.47],
+  [1,557,"Jesse Solomon",1.37,1.37],
+  [9,32,"Thurman Thomas",1.59,14.31],
+  [1,551,"Ezra Johnson",0.99,0.99],
+  [1,544,"David Treadwell",1.3,1.3],
+  [6,66,"Anthony Munoz",1.33,7.98],
+  [46,388,"Steve Young",1,46],
+  [1,549,"Marion Butts",1.42,1.42],
+  [2,335,"Jay Novacek",0.8,1.6],
+  [2,561,"Herschel Walker",1.49,2.98],
+  [1,543,"Tyrone Braxton",1.2,1.2],
+  [34,494,"Barry Sanders",28.89,982.26],
+  [21,1,"Pete Rozelle",2.99,62.79],
+  [1,101,"Bart Starr",1.68,1.68],
+  [1,17,"Jim Thorpe",1.95,1.95],
+  [1,134,"Roger Staubach",1.92,1.92],
+  [1,85,"Dick Lane",1.94,1.94],
+  [1,44,"Vince Lombardi",1.9,1.9],
+  [1,129,"Joe Namath",2.37,2.37],
+  [1,22,"George Trafton",1.09,1.09],
+  [1,24,"John Driscoll",1.96,1.96],
+  [1,32,"Arnie Herber",1.35,1.35],
+  [1,47,"Jim Brown",1.85,1.85],
+  [1,10,"Don Hutson",1.54,1.54],
+  [1,102,"Gale Sayers",1.99,1.99],
+  [1,26,"Otto Graham",1.42,1.42],
+  [1,69,"Paul Brown",1.52,1.52],
+  [1,127,"O.J. Simpson",3.27,3.27],
+  [1,138,"Fran Tarkenton",2.41,2.41],
+  [1,104,"Johnny Unitas",1.98,1.98],
+  [1,60,"Lawrence Taylor",2.95,2.95],
+  [4,72,"Jerry Rice",0.93,3.72],
+  [1,24,"Kent Hull [stars 'n stripes]",0,0],
+  [1,24,"Super Bowl XXIV",1.5,1.5],
+  [1,114,"Sterling Sharpe",1.35,1.35],
+  [1,79,"Michael Irvin",1.29,1.29],
+  [1,8,"Super Bowl VIII",1.85,1.85],
+  [1,10,"Thurman Thomas",0.99,0.99],
+  [1,343,"Chris Hinton [No Traded Banner on Front]",2.38,2.38],
+  [1,255,"Earl Ferrell",1.49,1.49],
+  [1,11,"Super Bowl XI",1.29,1.29],
+  [1,669,"Jeff George",1.64,1.64],
+  [1,1,"Payne Stewart [Special]",2,2],
+  [1,14,"Super Bowl XIV",1.37,1.37],
+  [2,1,"Barry Sanders: Rookie of the Year",1.53,3.06],
+  [1,134,"Andre Rison [No Mention of Trade on Card Front]",1.59,1.59],
+  [1,23,"Buck Buchanan",1.49,1.49],
+  [1,1,"Super Bowl I",1.3,1.3],
+  [1,231,"Lawrence Taylor",1.6,1.6],
+  [1,12,"Dalton Hilliard",1.13,1.13],
+  [1,197,"Herschel Walker",0.87,0.87],
+  [1,287,"Roger Craig",1.11,1.11],
+  [1,20,"Super Bowl XX",1.42,1.42],
+  [1,28,"Barry Sanders, Christian Okoye",1.08,1.08]
+];
+
+function fmt$(v) {
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+let sorted = { col: 'name', dir: 'asc' };
+let filtered = [...DATA];
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  filtered = DATA.filter(r => {
+    if (!q) return true;
+    return r[2].toLowerCase().includes(q) || String(r[1]).includes(q);
+  });
+  sortAndRender();
+}
+
+function sortAndRender() {
+  const colMap = {
+    num:   r => r[1],
+    name:  r => r[2].toLowerCase(),
+    qty:   r => r[0],
+    price: r => r[3],
+    total: r => r[4]
+  };
+  filtered.sort((a, b) => {
+    const va = colMap[sorted.col](a), vb = colMap[sorted.col](b);
+    const cmp = typeof va === 'number' ? va - vb : va.localeCompare(vb);
+    return sorted.dir === 'asc' ? cmp : -cmp;
+  });
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+  let totalQty = 0, totalVal = 0;
+
+  filtered.forEach(r => {
+    const [qty, num, name, price, total] = r;
+    totalQty += qty;
+    totalVal += total;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="card-num" style="text-align:center">${num}</td>
+      <td class="card-name">${name}</td>
+      <td class="qty">${qty}</td>
+      <td class="money">${fmt$(price)}</td>
+      <td class="money total-value">${fmt$(total)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('foot-qty').textContent = totalQty.toLocaleString();
+  document.getElementById('foot-total').textContent = fmt$(totalVal);
+  document.getElementById('row-count').textContent = filtered.length + ' of ' + DATA.length + ' items';
+  document.getElementById('stat-lines').textContent = filtered.length;
+  document.getElementById('stat-qty').textContent = totalQty.toLocaleString();
+  document.getElementById('stat-value').textContent = fmt$(totalVal);
+}
+
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    sorted.dir = sorted.col === col && sorted.dir === 'asc' ? 'desc' : 'asc';
+    sorted.col = col;
+    document.querySelectorAll('th').forEach(t => t.classList.remove('sorted-asc', 'sorted-desc'));
+    th.classList.add('sorted-' + sorted.dir);
+    sortAndRender();
+  });
+});
+
+document.getElementById('search').addEventListener('input', applyFilters);
+
+applyFilters();
+document.querySelector('th[data-col="name"]').classList.add('sorted-asc');
+</script>
+</body>
+</html>
